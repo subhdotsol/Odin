@@ -17,15 +17,39 @@ You should see:
 
 ## Step 2: Test with the Client
 
-In another terminal, run the client with a transaction signature.
+You can use the client in two ways: **Programmatic Mode** (recommended for quick testing) or **CLI Mode** (for custom parameters).
 
-### Basic Usage
+### Programmatic Mode (Recommended)
+
+Simply run the client without any arguments:
+```bash
+cargo run --bin odin-client
+```
+
+The client will use hardcoded values from `src/client.rs` (lines 51-56):
+```rust
+let tx_signature = "5mEjz...".to_string();
+let rpc = "https://api.mainnet-beta.solana.com".to_string();
+let log_filter = "".to_string(); // Empty = no filter
+let cu_logs = false; // true = include compute unit logs
+let raw_logs = false; // true = show raw transaction logs
+```
+
+**To test different transactions:** Edit these values in `src/client.rs` and run again.
+
+---
+
+### CLI Mode
+
+Pass arguments via command line for custom testing.
+
+#### Basic Usage
 
 ```bash
 cargo run --bin odin-client -- --tx-sig 5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2ukKtx8JXkERhJ6GCFPc7s4D2zh36d8XrNBEsquagKkY
 ```
 
-### With Compute Unit Logs
+#### With Compute Unit Logs
 
 ```bash
 cargo run --bin odin-client -- \
@@ -33,7 +57,7 @@ cargo run --bin odin-client -- \
   --include-cu-logs
 ```
 
-### With Log Filter
+#### With Log Filter
 
 ```bash
 cargo run --bin odin-client -- \
@@ -41,7 +65,7 @@ cargo run --bin odin-client -- \
   --filter "Instruction"
 ```
 
-### With Custom RPC URL
+#### With Custom RPC URL
 
 ```bash
 cargo run --bin odin-client -- \
@@ -49,7 +73,7 @@ cargo run --bin odin-client -- \
   --rpc-url https://api.devnet.solana.com
 ```
 
-### All Options Together
+#### All Options Together
 
 ```bash
 cargo run --bin odin-client -- \
@@ -64,36 +88,70 @@ cargo run --bin odin-client -- \
 
 | Flag | Short | Description | Default |
 |------|-------|-------------|---------|
-| `--tx-sig` | `-t` | Transaction signature (required) | - |
+| `--tx-sig` | `-t` | Transaction signature (optional in programmatic mode) | - |
 | `--rpc-url` | `-r` | Solana RPC URL | `https://api.mainnet-beta.solana.com` |
 | `--filter` | `-f` | Case-insensitive log filter | (empty) |
 | `--include-cu-logs` | `-c` | Include compute unit logs | `false` |
 | `--server` | `-s` | Server address | `http://[::1]:50051` |
+| `--programmatic` | `-p` | Force programmatic mode | `false` |
+
+## Output Sections
+
+The client displays transaction data in three sections:
+
+1. **⚡ Compute Unit Logs** - Shows compute units consumed per program (if enabled)
+2. **📋 Program Instruction Logs** - Filtered program logs (only "Program log:" entries)
+3. **📜 Raw Transaction Logs** - Complete unfiltered logs (if enabled in code)
 
 ## Example Output
 
 ```
-🔌 Connecting to Odin server at: http://[::1]:50051
+� Using PROGRAMMATIC mode (hardcoded values)
+
+�🔌 Connecting to Odin server at: http://[::1]:50051
 ✅ Connected successfully!
 
-📡 Fetching logs for transaction: 5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2ukKtx8JXkERhJ6GCFPc7s4D2zh36d8XrNBEsquagKkY
+📡 Fetching logs for transaction: 5mEjz...
 🌐 Using RPC: https://api.mainnet-beta.solana.com
 ⚡ Including compute unit logs
 
 ⏳ Requesting transaction logs...
 
-📋 Transaction Logs:
-================================================================================
-[1] Instruction: Initialize
-[2] Instruction: Transfer
-[3] Instruction: Close
-
 ⚡ Compute Unit Logs:
 ================================================================================
 Program ID: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
   Consumed: 4645 compute units
+Program ID: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
+  Consumed: 24988 compute units
+
+📋 Program Instruction Logs:
+================================================================================
+[1] Create
+[2] Instruction: GetAccountDataSize
+[3] Initialize the associated token account
+[4] Instruction: InitializeImmutableOwner
+[5] Instruction: Transfer
+
+📜 Raw Transaction Logs:
+================================================================================
+[1] Program ComputeBudget111111111111111111111111111111 invoke [1]
+[2] Program ComputeBudget111111111111111111111111111111 success
+[3] Program 11111111111111111111111111111111 invoke [1]
+[4] Program log: Create
+[5] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]
+... (complete transaction logs)
 
 ✅ Done!
+```
+
+## Customizing Output
+
+Edit `src/client.rs` (lines 51-56) to control what's displayed:
+
+```rust
+let cu_logs = true;   // Show/hide compute unit logs
+let raw_logs = true;  // Show/hide raw transaction logs
+let log_filter = "Instruction".to_string(); // Filter program logs
 ```
 
 ## Quick Test Command
@@ -101,6 +159,11 @@ Program ID: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 Use this ready-to-go command with a known transaction:
 ```bash
 cargo run --bin odin-client -- -t 5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2ukKtx8JXkERhJ6GCFPc7s4D2zh36d8XrNBEsquagKkY -c
+```
+
+Or just run without arguments for programmatic mode:
+```bash
+cargo run --bin odin-client
 ```
 
 ## Troubleshooting
@@ -117,3 +180,8 @@ cargo run --bin odin-client -- -t 5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2u
 - The transaction might not have any program logs
 - Your filter might be too restrictive
 - Try without a filter first
+
+**"Address already in use"**
+- Another server instance is running on port 50051
+- Stop the existing server with Ctrl+C or kill the process
+- Use `lsof -i :50051` to find the process ID

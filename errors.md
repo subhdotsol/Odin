@@ -210,6 +210,40 @@ This exposes the parser module so the server binary can use it.
 
 ---
 
+## 8. Address Already in Use Error
+
+**The Problem:**
+When trying to start the server, got this error:
+```
+Error: tonic::transport::Error(Transport, Os { code: 48, kind: AddrInUse, message: "Address already in use" })
+```
+
+This happens when the server is already running on port 50051, or another process is using that port.
+
+**The Fix:**
+
+Option 1 - Stop the existing server:
+- If you have the server running in another terminal, press `Ctrl+C` to stop it
+
+Option 2 - Find and kill the process:
+```bash
+# Find the process using port 50051
+lsof -i :50051
+
+# Kill the process (replace PID with the actual process ID)
+kill -9 <PID>
+```
+
+Option 3 - Change the server port:
+Edit `src/server.rs` and change the `DEFAULT_SERVER_ADDR` constant to use a different port:
+```rust
+const DEFAULT_SERVER_ADDR: &str = "[::1]:50052";  // Changed from 50051
+```
+
+**Lesson Learned:** Always make sure to stop the server properly when done testing. Only one process can listen on a port at a time.
+
+---
+
 ## Summary
 
 Most of my issues came from:
@@ -217,6 +251,7 @@ Most of my issues came from:
 2. Module naming and import order confusion
 3. Not knowing which Solana crates contain which types
 4. Forgetting to implement all trait requirements
+5. Port conflicts when running multiple server instances
 
 The key takeaway: read the compiler errors carefully, they usually tell you exactly what's wrong. And when working with gRPC/tonic, always include the proto code first before trying to use it.
 
