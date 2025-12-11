@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package odin;
+
+
+// ----------------------
+// Unary RPC: Get logs for a single transaction
+// ----------------------
+service SolanaTxLog {
+    // Fetch transaction logs for a given tx_sig (optional)
+    rpc GetTxLogs(GetTxRequest) returns (GetTxResponse);
+
+    // Stream logs for all transactions invoking a program address
+    rpc StreamProgramLogs(StreamProgramRequest) returns (stream LogMessage);
+}
+
+// Request for a single transaction logs
+message GetTxRequest {
+    string rpc_url = 1;       // optional, default to Mainnet Beta
+    string tx_sig = 2;        // optional, transaction signature
+    bool include_cu_logs = 3; // include compute unit logs
+    string filter = 4;        // optional log filter (case-insensitive)
+}
+
+// Response for a single transaction logs
+message GetTxResponse {
+    repeated string logs = 1;                // raw log lines
+    repeated ComputeUnitLog compute_units = 2; // optional CU logs
+    repeated AnchorEvent anchor_events = 3;  // optional Anchor events
+}
+
+// ----------------------
+// Server-side streaming: logs for a program address
+// ----------------------
+message StreamProgramRequest {
+    string rpc_url = 1;          // optional, default Mainnet Beta
+    string program_address = 2;  // required, Solana program pubkey
+    bool include_cu_logs = 3;    // include compute unit logs
+}
+
+// Each log line streamed to the client
+message LogMessage {
+    string log_line = 1;          // raw log line
+    string program_id = 2;        // program pubkey
+    uint64 consumed = 3;          // optional, compute units consumed
+    AnchorEvent anchor_event = 4; // optional, anchor event if detected
+}
+
+// Compute unit usage per program
+message ComputeUnitLog {
+    string program_id = 1;
+    uint64 consumed = 2;
+}
+
+// Anchor event structure (from Anchor programs)
+message AnchorEvent {
+    string name = 1;   // event name
+    string data = 2;   // JSON-encoded event data
+}
