@@ -3,6 +3,10 @@ name = "odin"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "odin"
+path = "src/lib.rs"
+
 [[bin]]
 name = "odin-server"
 path = "src/server.rs"
@@ -16,11 +20,13 @@ path = "src/client.rs"
 clap = { version = "4.5.53", features = ["derive", "env"] }
 prost = "0.14.1"
 regex = "1.12.2"
+solana-commitment-config = "3.1.0"
 solana-rpc-client = "3.1.4"
 solana-rpc-client-api = "3.1.4"
 solana-sdk = "3.0.0"
 solana-transaction-status-client-types = "3.1.4"
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
+tokio-stream = "0.1"
 tonic = "0.14.2"
 tonic-prost = "0.14.2"
 
