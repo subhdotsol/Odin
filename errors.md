@@ -244,6 +244,30 @@ const DEFAULT_SERVER_ADDR: &str = "[::1]:50052";  // Changed from 50051
 
 ---
 
+## 9. WebSocket TLS Support Missing
+
+**The Problem:**
+When implementing streaming with WebSocket, got this error:
+```
+❌ WebSocket connection failed: URL error: TLS support not compiled in
+```
+
+This happened because `tokio-tungstenite` was added without TLS features, but Solana uses secure WebSocket (`wss://`).
+
+**The Fix:**
+
+Added the `native-tls` feature to `tokio-tungstenite` in `Cargo.toml`:
+
+```toml
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+```
+
+This enables TLS support for secure WebSocket connections.
+
+**Lesson Learned:** When using WebSocket libraries, always check if you need TLS support. Secure WebSocket URLs (`wss://`) require TLS features to be enabled.
+
+---
+
 ## Summary
 
 Most of my issues came from:
@@ -252,7 +276,8 @@ Most of my issues came from:
 3. Not knowing which Solana crates contain which types
 4. Forgetting to implement all trait requirements
 5. Port conflicts when running multiple server instances
+6. Missing TLS support for WebSocket connections
 
 The key takeaway: read the compiler errors carefully, they usually tell you exactly what's wrong. And when working with gRPC/tonic, always include the proto code first before trying to use it.
 
-Building this taught me a lot about Rust's module system and how tonic works. Next time will be smoother!
+Building this taught me a lot about Rust's module system, how tonic works, and WebSocket streaming with Solana! Next time will be smoother!

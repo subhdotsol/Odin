@@ -8,7 +8,7 @@
 **Odin** is a Rust-based gRPC service for fetching, parsing, and streaming Solana transaction logs.  
 It supports:
 - One-off transaction log fetching with filtering
-- Real-time log streaming for a given Solana program (coming soon)
+- **Real-time log streaming** for any Solana program via WebSocket
 - Compute unit (CU) logging per program
 - Raw and filtered transaction logs
 - Anchor event detection (coming soon)
@@ -18,12 +18,13 @@ It supports:
 ## Features
 
 - ✅ Fetch transaction logs by **transaction signature**
+- ✅ **Real-time streaming** of logs for any program address
 - ✅ Include **compute unit logs** per program
 - ✅ **Raw transaction logs** (complete, unfiltered)
 - ✅ **Filtered program logs** (only "Program log:" entries)
 - ✅ **Programmatic mode** for easy testing
 - ✅ Configurable Solana RPC URL (defaults to Mainnet Beta)
-- 🚧 Stream logs for a **program address** in real-time (coming soon)
+- ✅ WebSocket subscription to Solana RPC
 - 🚧 Detect **Anchor events** emitted during program execution (coming soon)
 
 ---
@@ -67,14 +68,28 @@ Output:
 
 ### 2. Test with the Client
 
-**Programmatic Mode** (easiest):
+**A. Fetch Single Transaction (Unary)**
+
+Programmatic mode:
 ```bash
 cargo run --bin odin-client
 ```
 
-**CLI Mode** (custom parameters):
+CLI mode:
 ```bash
 cargo run --bin odin-client -- -t YOUR_TX_SIGNATURE -c
+```
+
+**B. Stream Real-Time Logs (Streaming)**
+
+Default (Token Program):
+```bash
+cargo run --bin odin-client -- --stream
+```
+
+Custom program:
+```bash
+cargo run --bin odin-client -- --stream --program YOUR_PROGRAM_ADDRESS -c
 ```
 
 See [TESTING.md](TESTING.md) for detailed usage examples.
@@ -196,7 +211,8 @@ odin/
 * ✅ ~~Raw transaction logs~~
 * ✅ ~~Compute unit logging~~
 * ✅ ~~Programmatic client mode~~
-* 🚧 Server-side streaming for program logs
+* ✅ ~~Server-side streaming for program logs~~
+* ✅ ~~WebSocket subscription~~
 * 🚧 Anchor event detection and parsing
 * 🚧 Advanced log filtering by type or event
 * 🚧 JSON output format option

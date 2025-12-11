@@ -185,3 +185,101 @@ cargo run --bin odin-client
 - Another server instance is running on port 50051
 - Stop the existing server with Ctrl+C or kill the process
 - Use `lsof -i :50051` to find the process ID
+
+---
+
+## Streaming Mode
+
+The server supports **real-time streaming** of transaction logs for a specific program address.
+
+### CLI Mode - Streaming
+
+**Default (Token Program):**
+```bash
+cargo run --bin odin-client -- --stream
+```
+
+**Custom Program:**
+```bash
+cargo run --bin odin-client -- --stream --program YOUR_PROGRAM_ADDRESS
+```
+
+**With Compute Units:**
+```bash
+cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA -c
+```
+
+### Popular Programs to Monitor
+
+**Token Program (Very Active):**
+```bash
+cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA -c
+```
+
+**System Program:**
+```bash
+cargo run --bin odin-client -- --stream --program 11111111111111111111111111111111
+```
+
+**Raydium AMM:**
+```bash
+cargo run --bin odin-client -- --stream --program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 -c
+```
+
+### Expected Streaming Output
+
+```
+🌊 STREAMING MODE
+📡 Program: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+🌐 RPC: https://api.mainnet-beta.solana.com
+
+⏳ Subscribing to real-time logs...
+
+✅ Subscribed! Waiting for transactions...
+
+================================================================================
+[1] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
+[2] Program log: Instruction: Transfer
+    ⚡ Consumed: 4645 CU
+[3] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
+[4] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
+...
+```
+
+Press `Ctrl+C` to stop streaming.
+
+### Postman - Streaming
+
+**Server:** `localhost:50051`  
+**Method:** `odin.SolanaTxLog/StreamProgramLogs`  
+**Disable TLS:** Yes (use plaintext)
+
+**Message:**
+```json
+{
+  "rpc_url": "",
+  "program_address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "include_cu_logs": true
+}
+```
+
+### grpcurl - Streaming
+
+```bash
+grpcurl -plaintext -d '{
+  "rpc_url": "",
+  "program_address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "include_cu_logs": true
+}' localhost:50051 odin.SolanaTxLog/StreamProgramLogs
+```
+
+---
+
+## Testing Summary
+
+| Feature | Programmatic | CLI | Postman | grpcurl |
+|---------|-------------|-----|---------|---------|
+| **Unary GetTxLogs** | ✅ | ✅ | ✅ | ✅ |
+| **Streaming** | ⚠️ (CLI only) | ✅ | ✅ | ✅ |
+
+**Note:** For programmatic streaming, use CLI mode with `--stream` flag.

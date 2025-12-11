@@ -6,7 +6,8 @@ pub mod proto {
 }
 
 use proto::solana_tx_log_client::SolanaTxLogClient;
-use proto::GetTxRequest;
+use proto::{GetTxRequest, StreamProgramRequest};
+use futures_util::StreamExt;
 
 /// Odin gRPC Client - Test the transaction log parser
 #[derive(Parser, Debug)]
@@ -36,6 +37,14 @@ struct Args {
     /// Server address to connect to
     #[arg(short, long, default_value = "http://[::1]:50051")]
     server: String,
+
+    /// Enable streaming mode (subscribe to program logs)
+    #[arg(long, default_value = "false")]
+    stream: bool,
+
+    /// Program address to stream logs for (required in stream mode)
+    #[arg(long, default_value = "")]
+    program: String,
 }
 
 #[tokio::main]
@@ -64,9 +73,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔌 Connecting to Odin server at: {}", args.server);
 
     // Connect to the gRPC server
-    let mut client = SolanaTxLogClient::connect(args.server).await?;
+    let mut client = SolanaTxLogClient::connect(args.server.clone()).await?;
 
     println!("✅ Connected successfully!");
+
+    // Check if streaming mode
+    if args.stream {
+        // Streaming mode
+        let program = if args.program.is_empty() {
+            // Default to Token Program for testing
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string()
+        } else {
+            args.program.clone()
+        };
+
+        return test_streaming(client, program, rpc_url, include_cu_logs).await;
+    }
+
+    // Unary mode (existing functionality)
     println!("\n📡 Fetching logs for transaction: {}", tx_sig);
     println!("🌐 Using RPC: {}", rpc_url);
     
@@ -135,5 +159,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n✅ Done!");
 
+    Ok(())
+}
+
+/// Test streaming mode
+async fn test_streaming(
+    mut client: SolanaTxLogClient<tonic::transport::Channel>,
+    program_address: String,
+    rpc_url: String,
+    include_cu_logs: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("\n🌊 STREAMING MODE");
+    println!("📡 Program: {}", program_address);
+    println!("🌐 RPC: {}", rpc_url);
+    println!("\n⏳ Subscribing to real-time logs...\n");
+
+    let request = tonic::Request::new(StreamProgramRequest {
+        rpc_url,
+        program_address: program_address.clone(),
+        include_cu_logs,
+    });
+
+    let mut stream = client.stream_program_logs(request).await?.into_inner();
+
+    println!("✅ Subscribed! Waiting for transactions...\n");
+    println!("{}", "=".repeat(80));
+
+    let mut count = 0;
+    while let Some(log_msg) = stream.message().await? {
+        count += 1;
+        println!("[{}] {}", count, log_msg.log_line);
+        
+        if include_cu_logs && log_msg.consumed > 0 {
+            println!("    ⚡ Consumed: {} CU", log_msg.consumed);
+        }
+    }
+
+    println!("\n🛑 Stream ended");
     Ok(())
 }
