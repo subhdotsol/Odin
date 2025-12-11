@@ -52,8 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tx_signature = "5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2ukKtx8JXkERhJ6GCFPc7s4D2zh36d8XrNBEsquagKkY".to_string();
         let rpc = "https://api.mainnet-beta.solana.com".to_string();
         let log_filter = "".to_string(); // Empty string = no filter
-        let cu_logs = false; // true = include compute unit logs
-        let raw_logs = false; // true = show raw transaction logs
+        let cu_logs = true; // true = include compute unit logs
+        let raw_logs = true; // true = show raw transaction logs
         
         (tx_signature, rpc, log_filter, cu_logs, raw_logs)
     } else {
