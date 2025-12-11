@@ -21,6 +21,7 @@ pub struct TxLogParser {
     pub log_filter: Option<String>,
     pub include_cu_logs: bool,
     pub tx_logs: Option<Vec<String>>,
+    pub raw_logs: Option<Vec<String>>,
     pub compute_unit_logs: Option<ComputeUnitLog>,
     pub compute_units_consumed: Option<u64>,
 }
@@ -38,6 +39,7 @@ impl TxLogParser {
             rpc_url,
             include_cu_logs,
             tx_logs: None,
+            raw_logs: None,
             compute_units_consumed: None,
             compute_unit_logs: None,
         }
@@ -68,11 +70,15 @@ impl TxLogParser {
             .map_err(|e| format!("Failed to get transaction: {}", e))?;
 
         let mut tx_logs: Vec<String> = Vec::new();
+        let mut raw_tx_logs: Vec<String> = Vec::new();
         let mut compute_unit_logs: ComputeUnitLog = ComputeUnitLog::new();
 
         if let Some(meta) = tx.transaction.meta {
             if let OptionSerializer::Some(logs) = meta.log_messages {
                 for log in logs {
+                    // Store raw logs (unfiltered)
+                    raw_tx_logs.push(log.clone());
+                    
                     if log.contains(PROGRAM_LOG_PREFIX) {
                         let mut log = log.replace(&PROGRAM_LOG_PREFIX, "");
                         log = log.trim().to_string();
@@ -107,6 +113,7 @@ impl TxLogParser {
         }
 
         self.tx_logs = Some(tx_logs);
+        self.raw_logs = Some(raw_tx_logs);
 
         if self.include_cu_logs {
             self.compute_unit_logs = Some(compute_unit_logs);
@@ -117,6 +124,12 @@ impl TxLogParser {
 
     pub fn get_tx_logs(&self) -> Vec<String> {
         self.tx_logs
+            .as_ref()
+            .map_or(Vec::new(), |logs| logs.clone())
+    }
+
+    pub fn get_raw_logs(&self) -> Vec<String> {
+        self.raw_logs
             .as_ref()
             .map_or(Vec::new(), |logs| logs.clone())
     }

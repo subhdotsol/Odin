@@ -24,9 +24,10 @@ message GetTxRequest {
 
 // Response for a single transaction logs
 message GetTxResponse {
-    repeated string logs = 1;                // raw log lines
+    repeated string logs = 1;                // filtered program log lines
     repeated ComputeUnitLog compute_units = 2; // optional CU logs
     repeated AnchorEvent anchor_events = 3;  // optional Anchor events
+    repeated string raw_logs = 4;            // raw unfiltered transaction logs
 }
 
 // ----------------------

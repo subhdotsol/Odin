@@ -45,19 +45,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ========================================
     // PROGRAMMATIC MODE - Hardcode your values here!
     // ========================================
-    let (tx_sig, rpc_url, filter, include_cu_logs) = if args.programmatic || args.tx_sig.is_empty() {
+    let (tx_sig, rpc_url, filter, include_cu_logs, show_raw_logs) = if args.programmatic || args.tx_sig.is_empty() {
         println!("🔧 Using PROGRAMMATIC mode (hardcoded values)\n");
         
         // 👇 EDIT THESE VALUES TO TEST DIFFERENT TRANSACTIONS
         let tx_signature = "5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2ukKtx8JXkERhJ6GCFPc7s4D2zh36d8XrNBEsquagKkY".to_string();
         let rpc = "https://api.mainnet-beta.solana.com".to_string();
         let log_filter = "".to_string(); // Empty string = no filter
-        let cu_logs = true; // true = include compute unit logs
+        let cu_logs = false; // true = include compute unit logs
+        let raw_logs = false; // true = show raw transaction logs
         
-        (tx_signature, rpc, log_filter, cu_logs)
+        (tx_signature, rpc, log_filter, cu_logs, raw_logs)
     } else {
         println!("🔧 Using CLI mode (command-line arguments)\n");
-        (args.tx_sig.clone(), args.rpc_url.clone(), args.filter.clone(), args.include_cu_logs)
+        (args.tx_sig.clone(), args.rpc_url.clone(), args.filter.clone(), args.include_cu_logs, true)
     };
 
     println!("🔌 Connecting to Odin server at: {}", args.server);
@@ -91,8 +92,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tx_response = response.into_inner();
 
-    // Display the logs
-    println!("📋 Transaction Logs:");
+    // Display compute unit logs if included
+    if !tx_response.compute_units.is_empty() {
+        println!("⚡ Compute Unit Logs:");
+        println!("{}", "=".repeat(80));
+        for cu_log in tx_response.compute_units.iter() {
+            println!("Program ID: {}", cu_log.program_id);
+            println!("  Consumed: {} compute units", cu_log.consumed);
+        }
+    }
+
+    // Display the program instruction logs
+    println!("\n📋 Program Instruction Logs:");
     println!("{}", "=".repeat(80));
     
     if tx_response.logs.is_empty() {
@@ -103,13 +114,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Display compute unit logs if included
-    if !tx_response.compute_units.is_empty() {
-        println!("\n⚡ Compute Unit Logs:");
+    // Display raw transaction logs (optional - controlled by show_raw_logs flag)
+    if show_raw_logs && !tx_response.raw_logs.is_empty() {
+        println!("\n📜 Raw Transaction Logs:");
         println!("{}", "=".repeat(80));
-        for cu_log in tx_response.compute_units.iter() {
-            println!("Program ID: {}", cu_log.program_id);
-            println!("  Consumed: {} compute units", cu_log.consumed);
+        for (idx, log) in tx_response.raw_logs.iter().enumerate() {
+            println!("[{}] {}", idx + 1, log);
         }
     }
 

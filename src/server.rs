@@ -68,6 +68,7 @@ impl SolanaTxLog for OdinService {
 
         // Get the parsed logs
         let logs = parser.get_tx_logs();
+        let raw_logs = parser.get_raw_logs();
 
         // Build compute unit logs if requested
         let mut compute_units = Vec::new();
@@ -86,6 +87,7 @@ impl SolanaTxLog for OdinService {
             logs,
             compute_units,
             anchor_events: Vec::new(), // TODO: Implement anchor event parsing later
+            raw_logs,
         };
 
         Ok(Response::new(response))
