@@ -82,14 +82,14 @@ cargo run --bin odin-client -- -t YOUR_TX_SIGNATURE -c
 
 **B. Stream Real-Time Logs (Streaming)**
 
-Default (Token Program):
+Default (Memo Program):
 ```bash
 cargo run --bin odin-client -- --stream
 ```
 
-Custom program:
+Custom program with all features:
 ```bash
-cargo run --bin odin-client -- --stream --program YOUR_PROGRAM_ADDRESS -c
+cargo run --bin odin-client -- --stream --program YOUR_PROGRAM_ADDRESS --include-cu-logs --filter "Instruction" --no-raw-logs
 ```
 
 See [TESTING.md](TESTING.md) for detailed usage examples.
@@ -135,15 +135,32 @@ rpc GetTxLogs(GetTxRequest) returns (GetTxResponse);
 
 ---
 
-### 2. `StreamProgramLogs` (Server-Side Streaming) 🚧
+### 2. `StreamProgramLogs` (Server-Side Streaming) ✅
 
-Stream logs for every transaction invoking a given program address.
+Stream complete transaction data for every transaction invoking a given program address.
 
 ```proto
-rpc StreamProgramLogs(StreamProgramRequest) returns (stream LogMessage);
+rpc StreamProgramLogs(StreamProgramRequest) returns (stream StreamTransactionResponse);
 ```
 
-**Status:** Coming soon
+**StreamProgramRequest:**
+
+| Field           | Type   | Description                                              |
+| --------------- | ------ | -------------------------------------------------------- |
+| rpc_url         | string | Optional. Solana RPC endpoint. Defaults to Mainnet Beta. |
+| program_address | string | Required. Program address to monitor.                    |
+| include_cu_logs | bool   | Optional. Include compute unit logs.                     |
+| filter          | string | Optional. Filter logs containing this string (case-insensitive). |
+
+**StreamTransactionResponse:**
+
+| Field           | Type                  | Description                                    |
+| --------------- | --------------------- | ---------------------------------------------- |
+| signature       | string                | Transaction signature                          |
+| logs            | repeated string       | Filtered program log lines                     |
+| compute_units   | repeated ComputeUnitLog | Compute unit consumption per program          |
+| raw_logs        | repeated string       | Complete unfiltered transaction logs           |
+| timestamp       | string                | ISO 8601 timestamp                             |
 
 ---
 

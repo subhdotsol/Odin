@@ -7,7 +7,6 @@ pub mod proto {
 
 use proto::solana_tx_log_client::SolanaTxLogClient;
 use proto::{GetTxRequest, StreamProgramRequest};
-use futures_util::StreamExt;
 
 /// Odin gRPC Client - Test the transaction log parser
 #[derive(Parser, Debug)]
@@ -33,6 +32,10 @@ struct Args {
     /// Include compute unit logs
     #[arg(short = 'c', long, default_value = "false")]
     include_cu_logs: bool,
+
+    /// Hide raw transaction logs (default: show them)
+    #[arg(long = "no-raw-logs", default_value = "false")]
+    no_raw_logs: bool,
 
     /// Server address to connect to
     #[arg(short, long, default_value = "http://[::1]:50051")]
@@ -62,12 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let rpc = "https://api.mainnet-beta.solana.com".to_string();
         let log_filter = "".to_string(); // Empty string = no filter
         let cu_logs = true; // true = include compute unit logs
-        let raw_logs = true; // true = show raw transaction logs
+        let raw_logs = false; // false = hide raw transaction logs
         
         (tx_signature, rpc, log_filter, cu_logs, raw_logs)
     } else {
         println!("🔧 Using CLI mode (command-line arguments)\n");
-        (args.tx_sig.clone(), args.rpc_url.clone(), args.filter.clone(), args.include_cu_logs, true)
+        (args.tx_sig.clone(), args.rpc_url.clone(), args.filter.clone(), args.include_cu_logs, !args.no_raw_logs)
     };
 
     println!("🔌 Connecting to Odin server at: {}", args.server);
@@ -82,12 +85,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Streaming mode
         let program = if args.program.is_empty() {
             // Default to Token Program for testing
-            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string()
+            "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr".to_string()
         } else {
             args.program.clone()
         };
 
-        return test_streaming(client, program, rpc_url, include_cu_logs).await;
+        return test_streaming(client, program, rpc_url, include_cu_logs, filter, show_raw_logs).await;
     }
 
     // Unary mode (existing functionality)
@@ -168,33 +171,79 @@ async fn test_streaming(
     program_address: String,
     rpc_url: String,
     include_cu_logs: bool,
+    filter: String,
+    show_raw_logs: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🌊 STREAMING MODE");
     println!("📡 Program: {}", program_address);
     println!("🌐 RPC: {}", rpc_url);
+    
+    if !filter.is_empty() {
+        println!("🔍 Filter: {}", filter);
+    }
+    
+    if include_cu_logs {
+        println!("⚡ Including compute unit logs");
+    }
+    
     println!("\n⏳ Subscribing to real-time logs...\n");
 
     let request = tonic::Request::new(StreamProgramRequest {
         rpc_url,
         program_address: program_address.clone(),
         include_cu_logs,
+        filter,
     });
 
     let mut stream = client.stream_program_logs(request).await?.into_inner();
 
     println!("✅ Subscribed! Waiting for transactions...\n");
-    println!("{}", "=".repeat(80));
 
     let mut count = 0;
-    while let Some(log_msg) = stream.message().await? {
+    while let Some(tx_response) = stream.message().await? {
         count += 1;
-        println!("[{}] {}", count, log_msg.log_line);
         
-        if include_cu_logs && log_msg.consumed > 0 {
-            println!("    ⚡ Consumed: {} CU", log_msg.consumed);
+        println!("{}", "=".repeat(80));
+        println!("📨 Transaction #{}: {}", count, tx_response.signature);
+        if !tx_response.timestamp.is_empty() {
+            println!("🕐 Timestamp: {}", tx_response.timestamp);
         }
+        println!("{}", "=".repeat(80));
+
+        // Display compute unit logs if included
+        if !tx_response.compute_units.is_empty() {
+            println!("\n⚡ Compute Unit Logs:");
+            println!("{}", "=".repeat(80));
+            for cu_log in tx_response.compute_units.iter() {
+                println!("Program ID: {}", cu_log.program_id);
+                println!("  Consumed: {} compute units", cu_log.consumed);
+            }
+        }
+
+        // Display the program instruction logs
+        println!("\n📋 Program Instruction Logs:");
+        println!("{}", "=".repeat(80));
+        
+        if tx_response.logs.is_empty() {
+            println!("No logs found (or all filtered out)");
+        } else {
+            for (idx, log) in tx_response.logs.iter().enumerate() {
+                println!("[{}] {}", idx + 1, log);
+            }
+        }
+
+        // Display raw transaction logs (optional)
+        if show_raw_logs && !tx_response.raw_logs.is_empty() {
+            println!("\n📜 Raw Transaction Logs:");
+            println!("{}", "=".repeat(80));
+            for (idx, log) in tx_response.raw_logs.iter().enumerate() {
+                println!("[{}] {}", idx + 1, log);
+            }
+        }
+
+        println!("\n");
     }
 
-    println!("\n🛑 Stream ended");
+    println!("🛑 Stream ended");
     Ok(())
 }

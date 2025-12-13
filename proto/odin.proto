@@ -11,7 +11,7 @@ service SolanaTxLog {
     rpc GetTxLogs(GetTxRequest) returns (GetTxResponse);
 
     // Stream logs for all transactions invoking a program address
-    rpc StreamProgramLogs(StreamProgramRequest) returns (stream LogMessage);
+    rpc StreamProgramLogs(StreamProgramRequest) returns (stream StreamTransactionResponse);
 }
 
 // Request for a single transaction logs
@@ -37,14 +37,16 @@ message StreamProgramRequest {
     string rpc_url = 1;          // optional, default Mainnet Beta
     string program_address = 2;  // required, Solana program pubkey
     bool include_cu_logs = 3;    // include compute unit logs
+    string filter = 4;           // optional log filter (case-insensitive)
 }
 
-// Each log line streamed to the client
-message LogMessage {
-    string log_line = 1;          // raw log line
-    string program_id = 2;        // program pubkey
-    uint64 consumed = 3;          // optional, compute units consumed
-    AnchorEvent anchor_event = 4; // optional, anchor event if detected
+// Complete transaction data streamed to the client
+message StreamTransactionResponse {
+    string signature = 1;                    // transaction signature
+    repeated string logs = 2;                // filtered program instruction logs
+    repeated ComputeUnitLog compute_units = 3; // optional CU logs
+    repeated string raw_logs = 4;            // raw unfiltered transaction logs
+    string timestamp = 5;                    // optional timestamp
 }
 
 // Compute unit usage per program

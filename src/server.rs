@@ -8,7 +8,7 @@ pub mod proto {
 
 // Import the generated types and server trait
 use proto::solana_tx_log_server::{SolanaTxLog, SolanaTxLogServer};
-use proto::{GetTxRequest, GetTxResponse, StreamProgramRequest, LogMessage, ComputeUnitLog};
+use proto::{GetTxRequest, GetTxResponse, StreamProgramRequest, ComputeUnitLog};
 
 // Import the parser module from the odin crate
 use odin::parser::TxLogParser;
@@ -25,7 +25,7 @@ pub struct OdinService;
 
 #[tonic::async_trait]
 impl SolanaTxLog for OdinService {
-    type StreamProgramLogsStream = ReceiverStream<Result<LogMessage, Status>>;
+    type StreamProgramLogsStream = ReceiverStream<Result<proto::StreamTransactionResponse, Status>>;
 
     /// Fetch transaction logs for a given transaction signature
     async fn get_tx_logs(
@@ -119,8 +119,22 @@ impl SolanaTxLog for OdinService {
                 .replace("http://", "ws://")
         };
 
+        // Use HTTP RPC URL for fetching transaction details
+        let rpc_url = if req.rpc_url.is_empty() {
+            DEFAULT_RPC_URL.to_string()
+        } else {
+            req.rpc_url.clone()
+        };
+
         println!("🔌 Connecting to WebSocket: {}", ws_url);
         println!("📡 Subscribing to program: {}", req.program_address);
+
+        // Prepare filter (None if empty)
+        let filter = if req.filter.is_empty() {
+            None
+        } else {
+            Some(req.filter.clone())
+        };
 
         // Create channel for streaming
         let (tx, rx) = tokio::sync::mpsc::channel(128);
@@ -170,45 +184,65 @@ impl SolanaTxLog for OdinService {
                         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
                             // Check if it's a log notification
                             if value.get("method").and_then(|m| m.as_str()) == Some("logsNotification") {
-                                if let Some(logs) = value
-                                    .pointer("/params/result/value/logs")
-                                    .and_then(|l| l.as_array())
-                                {
-                                    // Extract signature
-                                    let signature = value
-                                        .pointer("/params/result/value/signature")
-                                        .and_then(|s| s.as_str())
-                                        .unwrap_or("unknown");
+                                // Extract signature
+                                let signature = value
+                                    .pointer("/params/result/value/signature")
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("unknown");
 
-                                    // Send each log line
-                                    for log in logs {
-                                        if let Some(log_str) = log.as_str() {
-                                            // Parse compute units if requested
-                                            let consumed = if req.include_cu_logs && log_str.contains("consumed") {
-                                                // Extract CU from log like "Program X consumed Y of Z compute units"
-                                                log_str.split_whitespace()
-                                                    .nth(3)
-                                                    .and_then(|s| s.parse::<u64>().ok())
-                                                    .unwrap_or(0)
-                                            } else {
-                                                0
-                                            };
+                                if signature == "unknown" {
+                                    continue;
+                                }
 
-                                            let log_message = LogMessage {
-                                                log_line: log_str.to_string(),
-                                                program_id: req.program_address.clone(),
-                                                consumed,
-                                                anchor_event: None,
-                                            };
+                                println!("📨 Processing transaction: {}", signature);
 
-                                            if tx.send(Ok(log_message)).await.is_err() {
-                                                // Client disconnected
-                                                return;
+                                // Parse the full transaction using TxLogParser
+                                let mut parser = TxLogParser::new(
+                                    rpc_url.clone(),
+                                    signature.to_string(),
+                                    filter.as_deref(),
+                                    req.include_cu_logs,
+                                );
+
+                                match parser.parse().await {
+                                    Ok(_) => {
+                                        // Get the parsed logs
+                                        let logs = parser.get_tx_logs();
+                                        let raw_logs = parser.get_raw_logs();
+
+                                        // Build compute unit logs if requested
+                                        let mut compute_units = Vec::new();
+                                        if req.include_cu_logs {
+                                            let cu_logs = parser.get_cu_logs();
+                                            for (program_id, consumed) in cu_logs.iter() {
+                                                compute_units.push(ComputeUnitLog {
+                                                    program_id: program_id.to_string(),
+                                                    consumed: *consumed,
+                                                });
                                             }
                                         }
-                                    }
 
-                                    println!("📨 Streamed logs for tx: {}", signature);
+                                        // Build the response
+                                        let response = proto::StreamTransactionResponse {
+                                            signature: signature.to_string(),
+                                            logs,
+                                            compute_units,
+                                            raw_logs,
+                                            timestamp: chrono::Utc::now().to_rfc3339(),
+                                        };
+
+                                        if tx.send(Ok(response)).await.is_err() {
+                                            // Client disconnected
+                                            println!("🔌 Client disconnected");
+                                            return;
+                                        }
+
+                                        println!("✅ Streamed parsed transaction: {}", signature);
+                                    }
+                                    Err(e) => {
+                                        eprintln!("❌ Failed to parse transaction {}: {}", signature, e);
+                                        // Continue streaming even if one transaction fails
+                                    }
                                 }
                             }
                         }

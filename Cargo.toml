@@ -17,6 +17,7 @@ path = "src/client.rs"
 
 
 [dependencies]
+chrono = "0.4"
 clap = { version = "4.5.53", features = ["derive", "env"] }
 futures-util = "0.3"
 prost = "0.14.1"

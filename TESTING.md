@@ -92,16 +92,19 @@ cargo run --bin odin-client -- \
 | `--rpc-url` | `-r` | Solana RPC URL | `https://api.mainnet-beta.solana.com` |
 | `--filter` | `-f` | Case-insensitive log filter | (empty) |
 | `--include-cu-logs` | `-c` | Include compute unit logs | `false` |
+| `--no-raw-logs` | - | Hide raw transaction logs | `false` (shows by default) |
 | `--server` | `-s` | Server address | `http://[::1]:50051` |
 | `--programmatic` | `-p` | Force programmatic mode | `false` |
+| `--stream` | - | Enable streaming mode | `false` |
+| `--program` | - | Program address to stream (required with --stream) | - |
 
 ## Output Sections
 
-The client displays transaction data in three sections:
+The client displays transaction data in up to three sections:
 
-1. **⚡ Compute Unit Logs** - Shows compute units consumed per program (if enabled)
-2. **📋 Program Instruction Logs** - Filtered program logs (only "Program log:" entries)
-3. **📜 Raw Transaction Logs** - Complete unfiltered logs (if enabled in code)
+1. **⚡ Compute Unit Logs** - Shows compute units consumed per program (if `--include-cu-logs` is used)
+2. **📋 Program Instruction Logs** - Filtered program logs (only "Program log:" entries, filtered by `--filter` if provided)
+3. **📜 Raw Transaction Logs** - Complete unfiltered logs (hidden if `--no-raw-logs` is used)
 
 ## Example Output
 
@@ -146,12 +149,20 @@ Program ID: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
 
 ## Customizing Output
 
-Edit `src/client.rs` (lines 51-56) to control what's displayed:
+Use CLI flags to control what's displayed:
 
-```rust
-let cu_logs = true;   // Show/hide compute unit logs
-let raw_logs = true;  // Show/hide raw transaction logs
-let log_filter = "Instruction".to_string(); // Filter program logs
+```bash
+# Hide raw logs
+cargo run --bin odin-client -- --tx-sig YOUR_TX_SIG --no-raw-logs
+
+# Show compute units
+cargo run --bin odin-client -- --tx-sig YOUR_TX_SIG --include-cu-logs
+
+# Filter program logs
+cargo run --bin odin-client -- --tx-sig YOUR_TX_SIG --filter "Instruction"
+
+# Combine options
+cargo run --bin odin-client -- --tx-sig YOUR_TX_SIG --include-cu-logs --filter "Transfer" --no-raw-logs
 ```
 
 ## Quick Test Command
@@ -204,46 +215,79 @@ cargo run --bin odin-client -- --stream
 cargo run --bin odin-client -- --stream --program YOUR_PROGRAM_ADDRESS
 ```
 
-**With Compute Units:**
+**With Compute Units and Filter:**
 ```bash
-cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA -c
+cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA --include-cu-logs --filter "Transfer"
+```
+
+**Without Raw Logs:**
+```bash
+cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA --no-raw-logs
 ```
 
 ### Popular Programs to Monitor
 
+**Memo Program (Moderate Activity):**
+```bash
+cargo run --bin odin-client -- --stream --program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr --include-cu-logs
+```
+
 **Token Program (Very Active):**
 ```bash
-cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA -c
+cargo run --bin odin-client -- --stream --program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA --include-cu-logs --no-raw-logs
 ```
 
 **System Program:**
 ```bash
-cargo run --bin odin-client -- --stream --program 11111111111111111111111111111111
+cargo run --bin odin-client -- --stream --program 11111111111111111111111111111111 --no-raw-logs
 ```
 
 **Raydium AMM:**
 ```bash
-cargo run --bin odin-client -- --stream --program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 -c
+cargo run --bin odin-client -- --stream --program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 --include-cu-logs
 ```
 
 ### Expected Streaming Output
 
 ```
 🌊 STREAMING MODE
-📡 Program: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+📡 Program: MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr
 🌐 RPC: https://api.mainnet-beta.solana.com
+⚡ Including compute unit logs
 
 ⏳ Subscribing to real-time logs...
 
 ✅ Subscribed! Waiting for transactions...
 
 ================================================================================
-[1] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
-[2] Program log: Instruction: Transfer
-    ⚡ Consumed: 4645 CU
-[3] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
-[4] Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
+📨 Transaction #1: 5mEjzNZjbrFmwyAWUMZemyASaheGj4MFWo2rG8DsD98m2ukKtx8JXkERhJ6GCFPc7s4D2zh36d8XrNBEsquagKkY
+🕐 Timestamp: 2025-12-13T09:41:12.345Z
+================================================================================
+
+⚡ Compute Unit Logs:
+================================================================================
+Program ID: 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P
+  Consumed: 36246 compute units
+Program ID: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+  Consumed: 4645 compute units
+
+📋 Program Instruction Logs:
+================================================================================
+[1] Create
+[2] Instruction: GetAccountDataSize
+[3] Initialize the associated token account
+[4] Instruction: InitializeImmutableOwner
+[5] Instruction: Transfer
+
+📜 Raw Transaction Logs:
+================================================================================
+[1] Program ComputeBudget111111111111111111111111111111 invoke [1]
+[2] Program ComputeBudget111111111111111111111111111111 success
+[3] Program 11111111111111111111111111111111 invoke [1]
 ...
+
+================================================================================
+📨 Transaction #2: ...
 ```
 
 Press `Ctrl+C` to stop streaming.
@@ -258,8 +302,9 @@ Press `Ctrl+C` to stop streaming.
 ```json
 {
   "rpc_url": "",
-  "program_address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  "include_cu_logs": true
+  "program_address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "include_cu_logs": true,
+  "filter": ""
 }
 ```
 
@@ -268,8 +313,9 @@ Press `Ctrl+C` to stop streaming.
 ```bash
 grpcurl -plaintext -d '{
   "rpc_url": "",
-  "program_address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  "include_cu_logs": true
+  "program_address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "include_cu_logs": true,
+  "filter": ""
 }' localhost:50051 odin.SolanaTxLog/StreamProgramLogs
 ```
 
